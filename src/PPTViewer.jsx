@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { FileText, Download, Trash2, Eye, AlertCircle, Loader2, X } from 'lucide-react';
+import { FileText, Download, Trash2, Eye, AlertCircle, Loader2, X, ExternalLink } from 'lucide-react';
 
 const PPTViewer = () => {
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewBlob, setPreviewBlob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
 
-  const API_BASE = 'http://localhost:5000/api';
+  // Update this to your Vercel API endpoint
+  const API_BASE = window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000/api' 
+    : '/api';
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -35,7 +37,6 @@ const PPTViewer = () => {
       });
       if (!res.ok) throw new Error('Failed to delete file');
       
-      // Close preview if deleted file is currently being viewed
       if (selectedFile?._id === id) {
         handleClosePreview();
       }
@@ -47,70 +48,39 @@ const PPTViewer = () => {
     }
   };
 
-  const handleView = async (file) => {
-    setViewLoading(true);
+  const handleView = (file) => {
     setSelectedFile(file);
-    
-    try {
-      const res = await fetch(`${API_BASE}/files/${file._id}`);
-      if (!res.ok) throw new Error('Failed to fetch file');
-      
-      const blob = await res.blob();
-      
-      // Clean up previous blob URL
-      if (previewBlob) {
-        URL.revokeObjectURL(previewBlob);
-      }
-      
-      const blobUrl = URL.createObjectURL(blob);
-      setPreviewBlob(blobUrl);
-    } catch (err) {
-      alert('Failed to load preview: ' + err.message);
-      console.error('Failed to view file:', err);
-      setSelectedFile(null);
-    } finally {
-      setViewLoading(false);
-    }
   };
 
   const handleClosePreview = () => {
-    if (previewBlob) {
-      URL.revokeObjectURL(previewBlob);
-    }
-    setPreviewBlob(null);
     setSelectedFile(null);
   };
 
-  const handleDownloadPreview = () => {
-    if (!previewBlob || !selectedFile) return;
-    
-    const a = document.createElement('a');
-    a.href = previewBlob;
-    a.download = selectedFile.originalname;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const openInOfficeOnline = (file) => {
+    const fileUrl = encodeURIComponent(`${window.location.origin}${API_BASE}/download/${file._id}`);
+    const officeUrl = `https://view.officeapps.live.com/op/view.aspx?src=${fileUrl}`;
+    window.open(officeUrl, '_blank');
+  };
+
+  const openInGoogleDocs = (file) => {
+    const fileUrl = encodeURIComponent(`${window.location.origin}${API_BASE}/download/${file._id}`);
+    const googleUrl = `https://docs.google.com/viewer?url=${fileUrl}&embedded=true`;
+    window.open(googleUrl, '_blank');
+  };
+
+  const viewInIframe = (file) => {
+    setViewLoading(true);
+    setSelectedFile({ ...file, showIframe: true });
   };
 
   useEffect(() => {
     fetchFiles();
-    
-    // Cleanup on unmount
-    return () => {
-      if (previewBlob) {
-        URL.revokeObjectURL(previewBlob);
-      }
-    };
   }, []);
 
   const formatFileSize = (bytes) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const getFileExtension = (filename) => {
-    return filename.split('.').pop().toLowerCase();
   };
 
   return (
@@ -120,7 +90,7 @@ const PPTViewer = () => {
         <div className="bg-white rounded-lg shadow-lg p-4 md:p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
             <FileText className="w-8 h-8 text-indigo-600" />
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Uploaded Files</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Uploaded PowerPoint Files</h2>
           </div>
 
           {loading ? (
@@ -167,15 +137,13 @@ const PPTViewer = () => {
                           <button
                             onClick={() => handleView(f)}
                             className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm"
-                            disabled={viewLoading}
                           >
                             <Eye className="w-4 h-4" />
                             <span className="hidden sm:inline">View</span>
                           </button>
                           <a
                             href={`${API_BASE}/download/${f._id}`}
-                            target="_blank"
-                            rel="noreferrer"
+                            download={f.originalname}
                             className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                           >
                             <Download className="w-4 h-4" />
@@ -201,7 +169,7 @@ const PPTViewer = () => {
         {/* Preview Modal */}
         {selectedFile && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -220,59 +188,84 @@ const PPTViewer = () => {
                 </button>
               </div>
 
-              {/* Preview Content */}
-              <div className="flex-1 overflow-hidden p-4 bg-gray-50">
-                {viewLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-                    <span className="ml-3 text-gray-600">Loading preview...</span>
-                  </div>
-                ) : previewBlob ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-4">
-                    <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
-                      <FileText className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
-                      <h4 className="text-xl font-bold text-gray-800 mb-2">Preview Ready</h4>
-                      <p className="text-gray-600 mb-6">
-                        PowerPoint files cannot be previewed directly in the browser.
+              {/* Preview Options */}
+              <div className="flex-1 overflow-auto p-6 bg-gray-50">
+                <div className="max-w-2xl mx-auto">
+                  {selectedFile.showIframe ? (
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden" style={{ height: '600px' }}>
+                      <iframe
+                        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(`${window.location.origin}${API_BASE}/download/${selectedFile._id}`)}`}
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        title="PowerPoint Preview"
+                        onLoad={() => setViewLoading(false)}
+                      />
+                      {viewLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90">
+                          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                          <span className="ml-3 text-gray-600">Loading preview...</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-white p-8 rounded-lg shadow-md text-center">
+                      <FileText className="w-20 h-20 text-indigo-600 mx-auto mb-6" />
+                      <h4 className="text-2xl font-bold text-gray-800 mb-3">PowerPoint Preview</h4>
+                      <p className="text-gray-600 mb-8">
+                        Choose how you'd like to view this presentation:
                       </p>
-                      <div className="flex flex-col gap-3">
+                      
+                      <div className="space-y-4">
                         <button
-                          onClick={handleDownloadPreview}
-                          className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold"
+                          onClick={() => viewInIframe(selectedFile)}
+                          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold shadow-md"
                         >
-                          <Download className="w-5 h-5" />
-                          Download to View
+                          <Eye className="w-5 h-5" />
+                          Preview Here (Embedded)
                         </button>
+
+                        <button
+                          onClick={() => openInOfficeOnline(selectedFile)}
+                          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-md"
+                        >
+                          <ExternalLink className="w-5 h-5" />
+                          Open in Microsoft Office Online
+                        </button>
+                        
+                        <button
+                          onClick={() => openInGoogleDocs(selectedFile)}
+                          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold shadow-md"
+                        >
+                          <ExternalLink className="w-5 h-5" />
+                          Open in Google Docs Viewer
+                        </button>
+                        
                         <a
                           href={`${API_BASE}/download/${selectedFile._id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+                          download={selectedFile.originalname}
+                          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold shadow-md"
                         >
                           <Download className="w-5 h-5" />
-                          Open in New Tab
+                          Download File
                         </a>
                       </div>
-                      <p className="text-sm text-gray-500 mt-4">
-                        Open with Microsoft PowerPoint or compatible software
-                      </p>
+                      
+                      <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-gray-600">
+                          💡 <strong>Tip:</strong> For best results, download the file and open it with Microsoft PowerPoint or compatible software.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                      <p className="text-gray-600">Failed to load preview</p>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Footer */}
               <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200">
                 <button
                   onClick={handleClosePreview}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                  className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
                 >
                   Close
                 </button>
