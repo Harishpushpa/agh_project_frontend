@@ -190,9 +190,18 @@ const PPTViewer = () => {
 
               {/* Preview Options */}
               <div className="flex-1 overflow-auto p-6 bg-gray-50">
-                <div className="max-w-2xl mx-auto">
-                  {selectedFile.showIframe ? (
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden" style={{ height: '600px' }}>
+                {selectedFile.showIframe ? (
+                  <div className="h-full flex flex-col">
+                    <div className="mb-4">
+                      <button
+                        onClick={() => setSelectedFile({ ...selectedFile, showIframe: false })}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Back to Options
+                      </button>
+                    </div>
+                    <div className="flex-1 bg-white rounded-lg shadow-md overflow-hidden relative">
                       <iframe
                         src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(`${window.location.origin}${API_BASE}/download/${selectedFile._id}`)}`}
                         width="100%"
@@ -200,15 +209,18 @@ const PPTViewer = () => {
                         frameBorder="0"
                         title="PowerPoint Preview"
                         onLoad={() => setViewLoading(false)}
+                        className="absolute inset-0"
                       />
                       {viewLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90">
+                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
                           <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
                           <span className="ml-3 text-gray-600">Loading preview...</span>
                         </div>
                       )}
                     </div>
-                  ) : (
+                  </div>
+                ) : (
+                  <div className="max-w-2xl mx-auto"
                     <div className="bg-white p-8 rounded-lg shadow-md text-center">
                       <FileText className="w-20 h-20 text-indigo-600 mx-auto mb-6" />
                       <h4 className="text-2xl font-bold text-gray-800 mb-3">PowerPoint Preview</h4>
@@ -257,8 +269,8 @@ const PPTViewer = () => {
                         </p>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
