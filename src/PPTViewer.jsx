@@ -220,7 +220,7 @@ const PPTViewer = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="max-w-2xl mx-auto"
+                  <div className="max-w-2xl mx-auto">
                     <div className="bg-white p-8 rounded-lg shadow-md text-center">
                       <FileText className="w-20 h-20 text-indigo-600 mx-auto mb-6" />
                       <h4 className="text-2xl font-bold text-gray-800 mb-3">PowerPoint Preview</h4>
